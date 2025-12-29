@@ -1,0 +1,18 @@
+{
+  "analysis": {
+    "tokenizer": {
+      "nori_user_dict": {
+        "type": "nori_tokenizer",
+        "decompound_mode": "mixed",
+        "user_dictionary_rules": ["당근마켓", "중고거래"]
+      }
+    },
+    "analyzer": {
+      "nori": {
+        "type": "custom",
+        "tokenizer": "nori_user_dict",
+        "filter": ["lowercase", "nori_part_of_speech", "nori_readingform"]
+      }
+    }
+  }
+}

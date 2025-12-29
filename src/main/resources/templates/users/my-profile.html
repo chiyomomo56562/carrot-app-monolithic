@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+    layout:decorate="~{layout/base}">
+
+<head>
+    <title>내 프로필</title>
+    <style>
+        .profile-container {
+            max-width: 600px;
+            margin: 60px auto;
+            background: white;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            animation: fadeIn 0.5s ease;
+        }
+
+        .profile-header-bg {
+            height: 150px;
+            background: linear-gradient(135deg, var(--primary-color), #ffb88c);
+        }
+
+        .profile-info-section {
+            padding: 0 40px 40px;
+            text-align: center;
+            position: relative;
+        }
+
+        .profile-img-large {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 5px solid white;
+            margin-top: -60px;
+            background: #eee;
+            object-fit: cover;
+            box-shadow: var(--shadow-md);
+        }
+
+        .profile-main-info {
+            margin-top: 20px;
+        }
+
+        .profile-nickname {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 5px;
+        }
+
+        .profile-location {
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            font-size: 0.95rem;
+        }
+
+        .profile-stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin: 30px 0;
+            padding: 20px 0;
+            border-top: 1px solid #eee;
+            border-bottom: 1px solid #eee;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-weight: 700;
+            font-size: 1.25rem;
+            display: block;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div layout:fragment="content" class="container">
+        <div class="profile-container">
+            <div class="profile-header-bg"></div>
+            <div class="profile-info-section">
+                <img th:src="${user.profileImageUrl != null ? user.profileImageUrl : 'https://via.placeholder.com/120'}"
+                    class="profile-img-large" alt="Profile">
+
+                <div class="profile-main-info">
+                    <h2 class="profile-nickname" th:text="${user.nickname}">닉네임</h2>
+                    <div class="profile-location">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                        <span th:text="${user.location}">서울특별시 서초구</span>
+                    </div>
+                </div>
+
+                <!-- <div class="profile-stats">
+                    <div class="stat-item">
+                        <span class="stat-value">0</span>
+                        <span class="stat-label">판매상품</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value">36.5℃</span>
+                        <span class="stat-label">매너온도</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value">0</span>
+                        <span class="stat-label">받은후기</span>
+                    </div>
+                </div> -->
+
+                <div class="action-btns">
+                    <button class="btn" style="background: #f0f0f0; flex: 1;">프로필 수정</button>
+                    <button class="btn btn-primary" style="flex: 1;">판매내역 보기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

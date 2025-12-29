@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+    layout:decorate="~{layout/base}">
+
+<head>
+    <title>중고거래</title>
+</head>
+
+<body>
+    <div layout:fragment="content" class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 40px;">
+            <h1 style="font-size: 1.5rem; font-weight: 700;">인기 중고매물</h1>
+            <a th:href="@{/products/new}" class="btn btn-primary">내 물건 팔기</a>
+        </div>
+
+        <!-- 추후 카테고리 기능 추가 시 활성화
+        <div class="category-filter">
+            <a th:href="@{/products}" class="category-item" th:classappend="${param.categoryId == null} ? 'active'">전체</a>
+            <a th:each="cat : ${categories}" 
+               th:href="@{/products(categoryId=${cat.id})}" 
+               class="category-item" 
+               th:classappend="${#strings.equals(param.categoryId, cat.id.toString())} ? 'active'"
+               th:text="${cat.name}">카테고리</a>
+        </div>
+        -->
+
+        <div class="product-grid">
+            <a th:each="product : ${products.content}" th:href="@{/products/{id}(id=${product.id})}"
+                class="product-card animate-fade-in">
+                <div class="product-image-wrapper">
+                    <img th:src="${product.thumbnailUrl != null ? product.thumbnailUrl : '/images/default-product.png'}"
+                        class="product-thumbnail" alt="상품 이미지"
+                        th:classappend="${product.status == 'SOLD' ? 'sold-out' : ''}">
+                    <div th:if="${product.status == 'RESERVED'}"
+                        style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 1.2rem; z-index: 1;">
+                        예약중
+                    </div>
+                    <div th:if="${product.status == 'SOLD'}"
+                        style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 1.2rem; z-index: 1;">
+                        거래완료
+                    </div>
+                </div>
+                <div class="product-info">
+                    <h2 class="product-title" th:text="${product.title}">상품 제목</h2>
+                    <div class="product-price"
+                        th:text="${#numbers.formatDecimal(product.price, 0, 'COMMA', 0, 'POINT') + '원'}">10,000원</div>
+                    <div class="product-meta">
+                        <span class="product-location" th:text="${product.location}">지역</span>
+                        <div style="display: flex; gap: 8px;">
+                            <!-- <span th:if="${product.chatCount > 0}" th:text="'채팅 ' + ${product.chatCount}">채팅 0</span> -->
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div th:if="${products.totalPages > 1}" class="pagination">
+            <a th:each="pageNum : ${#numbers.sequence(0, products.totalPages - 1)}"
+                th:href="@{/products(page=${pageNum}, categoryId=${param.categoryId})}" class="page-item"
+                th:classappend="${pageNum == products.number} ? 'active'" th:text="${pageNum + 1}">1</a>
+        </div>
+
+        <div th:if="${products.content.isEmpty()}" style="text-align: center; padding: 100px 0;">
+            <p style="color: var(--text-muted); font-size: 1.1rem;">등록된 상품이 없습니다.</p>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+    layout:decorate="~{layout/base}">
+
+<head>
+    <title th:text="${product.title}">상품 상세</title>
+</head>
+
+<body>
+    <div layout:fragment="content" class="container">
+        <div class="product-detail-container">
+            <div class="detail-image-section glass animate-fade-in">
+                <img th:src="${product.images != null && !product.images.isEmpty() ? product.images[0].imageUrl : '/images/default-product.png'}"
+                    class="main-image" id="mainImage" alt="상품 이미지">
+            </div>
+
+            <!-- 다중 이미지 썸네일 -->
+            <div th:if="${product.images != null && product.images.size() > 1}" class="thumbnail-list animate-fade-in"
+                style="display: flex; gap: 10px; margin-top: 10px; overflow-x: auto; padding-bottom: 10px;">
+                <div th:each="image : ${product.images}" class="thumbnail-item" style="cursor: pointer;">
+                    <img th:src="${image.imageUrl}"
+                        style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #eee;"
+                        onclick="document.getElementById('mainImage').src = this.src" alt="썸네일">
+                </div>
+            </div>
+
+            <div class="seller-profile animate-fade-in">
+                <img th:src="${product.seller.profileImageUrl != null ? product.seller.profileImageUrl : '/images/default-profile.png'}"
+                    class="seller-image" alt="판매자 프로필">
+                <div class="seller-info">
+                    <h3 th:text="${product.seller.nickname}">판매자 닉네임</h3>
+                    <p th:text="${product.location}">판매 지역</p>
+                </div>
+                <div style="margin-left: auto; text-align: right;">
+                    <div style="font-weight: 700; color: #1561a9;">36.5°C</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">매너온도</div>
+                </div>
+            </div>
+
+            <div class="product-content animate-fade-in">
+                <h1 class="detail-title" th:text="${product.title}">상품 제목</h1>
+                <div style="display: flex; gap: 8px; margin-bottom: 10px; align-items: center;">
+                    <span th:if="${product.status == 'RESERVED'}"
+                        style="background: #20c997; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 700;">예약중</span>
+                    <span th:if="${product.status == 'SOLD'}"
+                        style="background: #495057; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 700;">거래완료</span>
+                    <a href="#" class="detail-category" th:text="${product.categoryName}"
+                        style="margin-bottom: 0;">카테고리</a>
+                </div>
+                <div class="detail-price"
+                    th:text="${#numbers.formatDecimal(product.price, 0, 'COMMA', 0, 'POINT') + '원'}">10,000원</div>
+                <p class="detail-description" th:text="${product.description}">상품 설명</p>
+                <div class="detail-stats">
+                    <!-- <span th:text="'관심 ' + ${product.likeCount}">관심 0</span> ∙
+                    <span th:text="'채팅 ' + ${product.chatCount}">채팅 0</span> ∙
+                    <span th:text="'조회 ' + ${product.viewCount}">조회 0</span> -->
+                </div>
+            </div>
+
+            <div class="detail-actions animate-fade-in">
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <button class="btn"
+                        style="background: none; border: 1px solid #dee2e6; width: 45px; height: 45px; padding: 0;">
+                        <span style="font-size: 1.2rem;">🤍</span>
+                    </button>
+                    <div style="height: 30px; width: 1px; background: #eee;"></div>
+                    <div class="detail-price" style="margin-bottom: 0;"
+                        th:text="${#numbers.formatDecimal(product.price, 0, 'COMMA', 0, 'POINT') + '원'}">10,000원</div>
+                </div>
+                <div style="display: flex; gap: 10px;" sec:authorize="isAuthenticated()">
+                    <!-- 판매자인 경우에만 수정/채팅 버튼 노출 -->
+                    <th:block th:if="${#authentication.principal.username == product.seller.email}">
+                        <a th:href="@{/products/{id}/edit(id=${product.id})}" class="btn"
+                            style="background: #f1f3f5;">수정하기</a>
+                    </th:block>
+                    <button th:if="${#authentication.principal.username != product.seller.email}"
+                        class="btn btn-primary" onclick="startChat()">채팅하기</button>
+                </div>
+            </div>
+
+            <script th:inline="javascript">
+                function startChat() {
+                    /*[[${#authorization.expression('isAuthenticated()')}]]*/
+                    const isAuthenticated = /*[[${#authorization.expression('isAuthenticated()')}]]*/ false;
+
+                    if (!isAuthenticated) {
+                        if (confirm('로그인이 필요한 서비스입니다. 로그인 페이지로 이동하시겠습니까?')) {
+                            window.location.href = '/users/login';
+                        }
+                        return;
+                    }
+
+                    const productId = /*[[${ product.id }]]*/ 1;
+
+                    // CSRF 토큰 가져오기 (Spring Security 설정에 따라 다를 수 있음)
+                    // base.html에서 XSRF-TOKEN 쿠키를 사용하도록 설정되어 있음
+                    const csrfToken = document.cookie.split('; ')
+                        .find(row => row.startsWith('XSRF-TOKEN='))
+                        ?.split('=')[1];
+
+                    fetch('/api/chats/rooms', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-XSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify({ productId: productId })
+                    })
+                        .then(res => {
+                            if (!res.ok) throw new Error('채팅방 생성에 실패했습니다.');
+                            return res.json();
+                        })
+                        .then(data => {
+                            window.location.href = '/chats/rooms/' + data.roomId;
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            alert(err.message);
+                        });
+                }
+            </script>
+
+            <div style="margin-top: 40px; padding-bottom: 60px;">
+                <h3 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 20px;">이 판매자의 다른 상품</h3>
+                <p style="color: var(--text-muted);">준비 중입니다.</p>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

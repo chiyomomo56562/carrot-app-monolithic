@@ -1,0 +1,110 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.9'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.carrot'
+version = '0.0.1-SNAPSHOT'
+description = 'Demo project for Spring Boot'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	runtimeOnly 'com.h2database:h2'
+	// spring boot dependencies
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.security:spring-security-messaging'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-websocket' // WebSocket Chat
+	implementation 'org.springframework.boot:spring-boot-starter-actuator' // Monitoring
+	implementation 'org.springframework.boot:spring-boot-starter-mail' // Email
+	
+	// kafka
+	implementation 'org.springframework.kafka:spring-kafka'
+	implementation 'org.apache.kafka:kafka-streams' //kafka
+
+	//thymeleaf
+	implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6'
+	implementation 'nz.net.ultraq.thymeleaf:thymeleaf-layout-dialect'
+
+	// API Documentation
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.1'
+	
+	// Validation
+	implementation 'org.springframework.boot:spring-boot-starter-validation' 
+	
+	// aws
+	implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3:3.3.1'
+
+	// elasticsearch
+	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
+
+	// httpclient
+	implementation 'org.apache.httpcomponents.client5:httpclient5:5.4.4'
+
+	// JWT
+	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+
+	// 이미지 리사이징 및 처리
+	implementation 'net.coobird:thumbnailator:0.4.20'
+
+	// json 직렬화
+	implementation 'com.fasterxml.jackson.core:jackson-databind'
+
+	// 프로메테우스
+	implementation 'io.micrometer:micrometer-registry-prometheus'
+
+	implementation 'net.logstash.logback:logstash-logback-encoder:7.2'
+
+	runtimeOnly 'com.mysql:mysql-connector-j' // MySQL Driver
+
+	// lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	
+	// test lombok
+	testCompileOnly 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+	
+
+	testImplementation 'org.springframework.kafka:spring-kafka-test'
+	testImplementation 'org.springframework.security:spring-security-test' 
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers' // Testcontainers
+	testImplementation(platform("org.testcontainers:testcontainers-bom:1.19.8"))
+	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation 'org.testcontainers:mysql'
+	testImplementation 'org.testcontainers:mongodb'
+	testImplementation 'org.testcontainers:kafka'
+	testImplementation 'org.awaitility:awaitility:4.2.0'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('bootBuildImage') {
+	runImage = 'paketobuildpacks/ubuntu-noble-run:latest'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

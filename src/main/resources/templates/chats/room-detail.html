@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+    layout:decorate="~{layout/base}">
+
+<head>
+    <title>채팅방</title>
+    <!-- SockJS & Stomp -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 140px);
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 16px;
+            border-bottom: 1px solid #eee;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #f8f9fa;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 10px 14px;
+            border-radius: 16px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .message-wrapper {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 8px;
+        }
+
+        .message-wrapper.sent {
+            align-items: flex-end;
+            /* 내가 보낸 건 오른쪽 정렬 */
+        }
+
+        .message-wrapper.received {
+            align-items: flex-start;
+            /* 상대가 보낸 건 왼쪽 정렬 */
+        }
+
+        .sender-name {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin: 0 4px 4px 4px;
+        }
+
+        .message-sent {
+            background: var(--primary-color);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-received {
+            background: white;
+            color: var(--text-color);
+            border: 1px solid #eee;
+            border-bottom-left-radius: 4px;
+        }
+
+        .unread-marker {
+            font-size: 0.7rem;
+            color: #ff8a3d;
+            margin-right: 4px;
+            font-weight: bold;
+        }
+
+        .chat-input-area {
+            padding: 16px;
+            background: white;
+            border-top: 1px solid #eee;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 10px;
+        }
+
+        .date-divider {
+            text-align: center;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .date-divider span {
+            background: #e9ecef;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+    </style>
+    <meta name="_csrf" th:content="${_csrf.token}" />
+    <meta name="_csrf_header" th:content="${_csrf.headerName}" />
+</head>
+
+<body>
+    <div layout:fragment="content" class="container">
+        <div class="chat-container">
+            <div class="chat-header">
+                <a th:href="@{/chats/rooms}" class="btn"
+                    style="padding: 8px; font-size: 1.2rem; color: var(--text-color); background: none;">←</a>
+                <!-- We need to fetch room info via AJAX or pass it from controller to show title -->
+                <h2 id="roomTitle" style="font-size: 1.1rem; margin: 0;" th:with="isSeller=${room.sellerId == currentUserId},
+                              opponentNickname=${isSeller ? room.buyerNickname : room.sellerNickname}"
+                    th:text="${opponentNickname}">채팅방</h2>
+                <div style="width: 40px;"></div> <!-- Spacer -->
+            </div>
+
+            <!-- Product Info Bar -->
+            <div class="product-info-bar" th:onclick="|location.href='/products/${room.productId}'|"
+                style="display: flex; align-items: center; padding: 12px; background: white; border-bottom: 1px solid #f1f3f5; cursor: pointer; gap: 12px; z-index: 5;">
+                <div style="width: 40px; height: 40px; border-radius: 4px; overflow: hidden; flex-shrink: 0;">
+                    <img th:src="${room.productThumbnail}" style="width: 100%; height: 100%; object-fit: cover;"
+                        alt="Product">
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                        th:text="${room.productTitle}">상품명</div>
+                    <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-color);"
+                        th:text="${#numbers.formatInteger(room.productPrice, 0, 'COMMA') + '원'}">0원</div>
+                </div>
+                <div style="color: #adb5bd; font-size: 1.2rem;">›</div>
+            </div>
+
+            <div id="messageArea" class="chat-messages">
+                <!-- Messages will be loaded here -->
+            </div>
+
+            <div class="chat-input-area">
+                <form id="messageForm" class="input-wrapper">
+                    <input type="text" id="messageInput" class="form-input" placeholder="메시지를 입력하세요..."
+                        autocomplete="off">
+                    <button type="submit" class="btn btn-primary" style="padding: 0 20px;">전송</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <th:block layout:fragment="script">
+        <script th:inline="javascript">
+            const roomId = window.location.pathname.split('/').pop();
+            let stompClient = null;
+
+            // Thymeleaf에서 전달받은 현재 유저 ID
+            const currentUserId = /*[[${ currentUserId }]]*/ 1;
+
+            // 바로 채팅 초기화
+            initChat();
+
+            function initChat() {
+                loadChatHistory();
+                connectWebSocket();
+            }
+
+            function connectWebSocket() {
+                const socket = new SockJS('/ws-chat');
+                stompClient = Stomp.over(socket);
+                stompClient.debug = null; // Disable debug logs
+
+                // // CSRF 토큰 가져오기
+                // const csrfToken = document.cookie.split('; ')
+                //     .find(row => row.startsWith('XSRF-TOKEN='))
+                //     ?.split('=')[1];
+
+                // const headers = {
+                //     'X-XSRF-TOKEN': csrfToken
+                // };
+
+                const token = document.querySelector('meta[name="_csrf"]').content;
+                const header = document.querySelector('meta[name="_csrf_header"]').content;
+
+                console.log("### token: " + token + " ###");
+                console.log("### header: " + header + " ###");
+
+                const headers = {
+                    [header]: token
+                };
+
+                stompClient.connect(headers, function (frame) {
+                    console.log('Connected: ' + frame);
+
+                    stompClient.subscribe('/topic/chat/room/' + roomId, function (message) {
+                        const data = JSON.parse(message.body);
+
+                        if (data.type === 'READ_SIGNAL') {
+                            // 상대방이 내가 보낸 메시지를 읽었을 때
+                            if (data.readerId != currentUserId) {
+                                document.querySelectorAll('.unread-marker').forEach(el => el.remove());
+                            }
+                        } else {
+                            displayMessage(data, true);
+                            scrollToBottom();
+                            // 내가 방에 있을 때 메시지를 받으면 바로 읽음 신호 보냄
+                            if (data.senderId != currentUserId) {
+                                sendReadNotification();
+                            }
+                        }
+                    });
+
+                    // 입장 시 읽음 처리 신호 전송
+                    sendReadNotification();
+                }, function (error) {
+                    console.error('STOMP error', error);
+                });
+            }
+
+            function sendReadNotification() {
+                if (stompClient && stompClient.connected) {
+                    stompClient.send("/app/read", {}, JSON.stringify({ roomId: roomId }));
+                }
+            }
+
+            function loadChatHistory() {
+                fetch(`/api/chats/rooms/${roomId}/messages?page=0&size=50`)
+                    .then(res => res.json())
+                    .then(data => {
+                        // Data is Slice<ChatMessage>, content has messages.
+                        // We need to render them in reverse order (oldest first)
+                        const messages = data.content.reverse();
+                        const messageArea = document.getElementById('messageArea');
+                        messageArea.innerHTML = '';
+
+                        messages.forEach(msg => {
+                            displayMessage(msg, true);
+                        });
+                        scrollToBottom();
+                    });
+            }
+
+            function displayMessage(msg, append) {
+                const messageArea = document.getElementById('messageArea');
+                const isMe = (Number(msg.senderId) === Number(currentUserId));
+                const opponentNickname = document.getElementById('roomTitle').textContent;
+
+                const wrapper = document.createElement('div');
+                wrapper.className = `message-wrapper ${isMe ? 'sent' : 'received'}`;
+
+                if (!isMe) {
+                    const nameDiv = document.createElement('div');
+                    nameDiv.className = 'sender-name';
+                    nameDiv.textContent = opponentNickname;
+                    wrapper.appendChild(nameDiv);
+                }
+
+                const bubbleWrapper = document.createElement('div');
+                bubbleWrapper.style.display = 'flex';
+                bubbleWrapper.style.alignItems = 'flex-end';
+                bubbleWrapper.style.gap = '4px';
+                bubbleWrapper.style.maxWidth = '70%'; // Prevent stretching
+
+                const bubble = document.createElement('div');
+                bubble.className = `message-bubble ${isMe ? 'message-sent' : 'message-received'}`;
+                bubble.textContent = msg.content;
+                bubble.style.maxWidth = '100%'; // Let wrapper control width
+
+                // 말씀하신 isRead 속성을 활용하여 '1' 표시 (내가 보낸 메시지이고 아직 안 읽었을 때)
+                if (isMe) {
+                    bubbleWrapper.style.flexDirection = 'row-reverse';
+                    // row-reverse일 때: [Bubble] [1] 순서로 넣으면 -> Visual [1] [Bubble] (Center aligned '1')
+                    bubbleWrapper.appendChild(bubble);
+
+                    if (msg.isRead === false) {
+                        const unread = document.createElement('span');
+                        unread.className = 'unread-marker';
+                        unread.textContent = '1';
+                        bubbleWrapper.appendChild(unread);
+                    }
+                } else {
+                    bubbleWrapper.appendChild(bubble);
+                }
+
+                wrapper.appendChild(bubbleWrapper);
+
+                if (append) {
+                    messageArea.appendChild(wrapper);
+                } else {
+                    messageArea.prepend(wrapper);
+                }
+            }
+
+            function scrollToBottom() {
+                const messageArea = document.getElementById('messageArea');
+                messageArea.scrollTop = messageArea.scrollHeight;
+            }
+
+            document.getElementById('messageForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                const input = document.getElementById('messageInput');
+                const content = input.value.trim();
+
+                if (content && stompClient) {
+                    const chatMessage = {
+                        roomId: roomId,
+                        content: content,
+                        type: 'TEXT'
+                    };
+
+                    stompClient.send("/app/message", {}, JSON.stringify(chatMessage));
+                    input.value = '';
+                }
+            });
+        </script>
+    </th:block>
+</body>
+
+</html>

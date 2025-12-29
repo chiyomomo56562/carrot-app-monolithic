@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+    layout:decorate="~{layout/base}">
+
+<head>
+    <title>검색 결과</title>
+</head>
+
+<body>
+    <div layout:fragment="content" class="container">
+        <div class="search-container" style="display: flex; gap: 20px; align-items: flex-start; margin-top: 40px;">
+            <!-- Filters Sidebar -->
+            <div class="filters glass"
+                style="width: 250px; padding: 20px; border-radius: 16px; position: sticky; top: 100px;">
+                <h3 style="margin-bottom: 20px; font-size: 1.1rem; font-weight: 600;">필터</h3>
+                <form action="/search" method="get" id="searchForm">
+                    <input type="hidden" name="q" th:value="${keyword}">
+
+                    <!-- Sort -->
+                    <div class="filter-group" style="margin-bottom: 20px;">
+                        <label class="input-label"
+                            style="font-size: 0.9rem; margin-bottom: 8px; display: block;">정렬</label>
+                        <select name="sort" class="form-input" style="padding: 8px; font-size: 0.9rem;"
+                            onchange="this.form.submit()">
+                            <option value="">관련도순</option>
+                            <option value="createdAt,desc"
+                                th:selected="${param.sort != null && param.sort[0] == 'createdAt,desc'}">최신순</option>
+                            <option value="price,asc"
+                                th:selected="${param.sort != null && param.sort[0] == 'price,asc'}">낮은 가격순</option>
+                            <option value="price,desc"
+                                th:selected="${param.sort != null && param.sort[0] == 'price,desc'}">높은 가격순</option>
+                        </select>
+                    </div>
+
+                    <!-- Category -->
+                    <div class="filter-group" style="margin-bottom: 20px;">
+                        <label class="input-label"
+                            style="font-size: 0.9rem; margin-bottom: 8px; display: block;">카테고리</label>
+                        <select name="categoryId" class="form-input" style="padding: 8px; font-size: 0.9rem;">
+                            <option value="">전체</option>
+                            <th:block th:each="cat : ${categories}">
+                                <option th:value="${cat.id}" th:text="${cat.name}"
+                                    th:selected="${categoryId == cat.id}"></option>
+                                <th:block th:each="child : ${cat.children}">
+                                    <option th:value="${child.id}" th:text="' - ' + ${child.name}"
+                                        th:selected="${categoryId == child.id}"></option>
+                                </th:block>
+                            </th:block>
+                        </select>
+                    </div>
+
+                    <!-- Price -->
+                    <div class="filter-group" style="margin-bottom: 20px;">
+                        <label class="input-label" style="font-size: 0.9rem; margin-bottom: 8px; display: block;">가격
+                            범위</label>
+                        <div style="display: flex; gap: 5px; align-items: center;">
+                            <input type="number" name="minPrice" placeholder="최소" class="form-input"
+                                style="padding: 8px; font-size: 0.9rem;" th:value="${minPrice}">
+                            <span style="color: var(--text-muted);">~</span>
+                            <input type="number" name="maxPrice" placeholder="최대" class="form-input"
+                                style="padding: 8px; font-size: 0.9rem;" th:value="${maxPrice}">
+                        </div>
+                    </div>
+
+                    <!-- Status -->
+                    <div class="filter-group" style="margin-bottom: 20px;">
+                        <label class="input-label"
+                            style="font-size: 0.9rem; margin-bottom: 8px; display: block;">상태</label>
+                        <select name="status" class="form-input" style="padding: 8px; font-size: 0.9rem;">
+                            <option value="">전체</option>
+                            <option value="ON_SALE" th:selected="${status == 'ON_SALE'}">판매중</option>
+                            <option value="RESERVED" th:selected="${status == 'RESERVED'}">예약중</option>
+                            <option value="SOLD" th:selected="${status == 'SOLD'}">판매완료</option>
+                        </select>
+                    </div>
+
+                    <div style="display: flex; gap: 8px;">
+                        <button type="submit" class="btn btn-primary" style="flex: 1; padding: 10px;">적용</button>
+                        <a th:href="@{/search(q=${keyword})}" class="btn"
+                            style="flex: 1; padding: 10px; text-align: center; background: #f1f3f5; color: var(--text-color);">초기화</a>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Results -->
+            <div style="flex: 1;">
+                <div style="margin-bottom: 20px;">
+                    <h1 style="font-size: 1.5rem; font-weight: 700;">
+                        <span th:text="'\'' + ${keyword} + '\''">검색어</span> 검색 결과
+                        <span style="font-size: 1rem; color: var(--text-muted); font-weight: 400;"
+                            th:text="'(' + ${products.totalElements} + '개)'">(0개)</span>
+                    </h1>
+                </div>
+
+                <div class="product-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));">
+                    <a th:each="product : ${products.content}" th:href="@{/products/{id}(id=${product.id})}"
+                        class="product-card animate-fade-in" style="background: white;">
+                        <div class="product-image-wrapper">
+                            <img th:src="${product.thumbnailUrl != null ? product.thumbnailUrl : '/images/default-product.png'}"
+                                class="product-thumbnail" alt="상품 이미지">
+                            <div th:if="${product.status != 'ON_SALE'}" class="status-badge"
+                                style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">
+                                <span th:text="${product.status == 'RESERVED' ? '예약중' : '판매완료'}"></span>
+                            </div>
+                        </div>
+                        <div class="product-info">
+                            <h2 class="product-title" th:text="${product.title}">상품 제목</h2>
+                            <div class="product-price"
+                                th:text="${#numbers.formatDecimal(product.price, 0, 'COMMA', 0, 'POINT') + '원'}">10,000원
+                            </div>
+                            <div class="product-meta">
+                                <span class="product-location" th:text="${product.location}">지역</span>
+                            </div>
+                            <div style="font-size: 0.8rem; color: #868e96; margin-top: 4px;">
+                                <span th:text="${product.sellerNickname}">판매자</span>
+                                <span th:text="${#temporals.format(product.createdAt, 'yyyy-MM-dd')}"
+                                    style="margin-left: 5px;">날짜</span>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+
+                <div th:if="${products.content.isEmpty()}" style="text-align: center; padding: 100px 0;">
+                    <p style="color: var(--text-muted); font-size: 1.1rem;">검색 결과가 없습니다.</p>
+                </div>
+
+                <div th:if="${products.totalPages > 1}" class="pagination">
+                    <a th:each="pageNum : ${#numbers.sequence(0, products.totalPages - 1)}"
+                        th:href="@{/search(q=${keyword}, page=${pageNum}, categoryId=${categoryId}, status=${status}, minPrice=${minPrice}, maxPrice=${maxPrice}, sort=${param.sort})}"
+                        class="page-item" th:classappend="${pageNum == products.number} ? 'active'"
+                        th:text="${pageNum + 1}">1</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
