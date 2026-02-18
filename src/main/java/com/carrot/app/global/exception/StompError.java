@@ -1,7 +1,9 @@
 package com.carrot.app.global.exception;
 
-public class StompError extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class StompError extends BusinessException {
     public StompError(String message) {
-        super(message);
+        super(message, HttpStatus.BAD_REQUEST);
     }
 }

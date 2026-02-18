@@ -1,7 +1,9 @@
 package com.carrot.app.global.exception;
 
-public class CategoryNotFoundException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class CategoryNotFoundException extends BusinessException {
     public CategoryNotFoundException(String message) {
-        super(message);
+        super(message, HttpStatus.NOT_FOUND);
     }
 }

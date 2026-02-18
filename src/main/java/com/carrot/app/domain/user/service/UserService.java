@@ -8,7 +8,7 @@ import com.carrot.app.domain.user.dto.UserSignUpResponse;
 import com.carrot.app.domain.user.entity.User;
 import com.carrot.app.domain.user.repository.UserRepository;
 import com.carrot.app.global.exception.UserNotFoundException;
-import com.carrot.app.infra.s3.S3Service;
+import com.carrot.app.infra.storage.StorageProviderFactory;
 import com.carrot.app.infra.email.EmailVerifyEvent;
 import com.carrot.app.global.exception.EmailAlreadyExistsException;
 import com.carrot.app.global.exception.EmailVerifyError;
@@ -19,11 +19,11 @@ import java.util.concurrent.TimeUnit;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.context.ApplicationEventPublisher;
 
 import lombok.RequiredArgsConstructor;
 
@@ -37,12 +37,12 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
-    private final S3Service s3Service;
+    private final StorageProviderFactory storageProviderFactory;
     private final RedisTemplate<String, String> redisTemplate;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Transactional
-    public UserSignUpResponse signUp(UserSignUpRequest request, MultipartFile profileImage) {
+    public UserSignUpResponse signUp(UserSignUpRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new EmailAlreadyExistsException("이미 가입된 이메일입니다.");
         }
@@ -50,9 +50,9 @@ public class UserService {
             throw new NicknameAlreadyExistsException("이미 사용 중인 닉네임입니다.");
         }
 
-        log.info("### profileImage: {}", profileImage);
+        log.info("### profileImage: {}", request.getProfileImage());
         // s3 업로드 로직
-        String profileImageUrl = s3Service.uploadOptimizedImage(profileImage);
+        String profileImageUrl = storageProviderFactory.getProvider().upload(request.getProfileImage());
 
         log.info("profileImageUrl: {}", profileImageUrl);
         User user = User.builder()
@@ -72,8 +72,8 @@ public class UserService {
         redisTemplate.opsForValue().set(token, user.getEmail(), 24L, TimeUnit.HOURS);
 
         log.info("### token: {}", token);
-        // 유저 회원 가입 시 이메일 전송을 해야함.
-        kafkaTemplate.send("email-verify", new EmailVerifyEvent(user.getEmail(), token));
+
+        applicationEventPublisher.publishEvent(new EmailVerifyEvent(user.getEmail(), token));
 
         log.info("### 이메일 발송 이벤트 발급 완료");
         return UserSignUpResponse.builder()

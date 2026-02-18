@@ -1,7 +1,9 @@
 package com.carrot.app.global.exception;
 
-public class TokenException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class TokenException extends BusinessException {
     public TokenException(String message) {
-        super(message);
+        super(message, HttpStatus.UNAUTHORIZED);
     }
 }

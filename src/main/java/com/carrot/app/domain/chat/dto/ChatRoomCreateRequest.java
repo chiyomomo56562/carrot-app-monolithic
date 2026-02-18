@@ -1,12 +1,7 @@
 package com.carrot.app.domain.chat.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.Builder;
 
-@Getter
-@NoArgsConstructor
-@AllArgsConstructor
-public class ChatRoomCreateRequest {
-    private Long productId;
+@Builder
+public record ChatRoomCreateRequest(Long productId) {
 }

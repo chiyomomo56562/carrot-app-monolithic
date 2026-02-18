@@ -5,24 +5,26 @@ import org.springframework.stereotype.Component;
 
 import com.carrot.app.infra.email.EmailService;
 import com.carrot.app.infra.email.EmailVerifyEvent;
+import com.carrot.app.global.event.AbstractEventConsumer;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-
 @Component
 @RequiredArgsConstructor
-public class EmailEventConsumer {
+public class EmailEventConsumer extends AbstractEventConsumer<EmailVerifyEvent> {
 
     private final EmailService emailService;
 
-    @KafkaListener(topics = "email-verify", groupId = "email-group")
+    @KafkaListener(topics = "user.email.verify", groupId = "email-group")
     public void consume(EmailVerifyEvent event) {
-        log.info("### Email verification event consumed: email={}", event.email());
+        handle(event);
+    }
 
+    @Override
+    protected void processEvent(EmailVerifyEvent event) {
         emailService.sendVerificationEmail(event.email(), event.token().toString());
-
         log.info("### Email sent successfully to: {}", event.email());
     }
 }

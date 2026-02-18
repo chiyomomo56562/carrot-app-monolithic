@@ -1,7 +1,9 @@
 package com.carrot.app.global.exception;
 
-public class UnauthorizedException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class UnauthorizedException extends BusinessException {
     public UnauthorizedException(String message) {
-        super(message);
+        super(message, HttpStatus.UNAUTHORIZED);
     }
 }

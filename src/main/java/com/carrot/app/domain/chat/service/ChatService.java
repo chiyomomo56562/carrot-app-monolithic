@@ -19,18 +19,20 @@ import com.carrot.app.domain.chat.repository.ChatRoomRepository;
 import com.carrot.app.domain.product.repository.ProductRepository;
 import com.carrot.app.domain.user.repository.UserRepository;
 import com.carrot.app.domain.chat.dto.ChatRoomResponse;
+import com.carrot.app.domain.chat.event.ChatEvent;
 import com.carrot.app.domain.chat.dto.ChatRoomCreateRequest;
 import com.carrot.app.domain.product.entity.Product;
 import com.carrot.app.domain.user.entity.User;
 import com.carrot.app.domain.chat.document.ChatRoom;
 import com.carrot.app.global.common.CacheKey;
+import com.carrot.app.global.event.DomainEventFactory;
 import com.carrot.app.global.exception.ChatRoomNotFoundException;
 import com.carrot.app.global.exception.ProductNotFoundException;
 import com.carrot.app.global.exception.UserNotFoundException;
-import com.carrot.app.infra.s3.S3Service;
+import com.carrot.app.infra.storage.StorageProviderFactory;
 import com.carrot.app.domain.chat.dto.ChatMessageRequest;
 import com.carrot.app.domain.chat.dto.ChatMessageResponse;
-import com.carrot.app.domain.chat.dto.ChatEvent;
+
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
@@ -48,20 +50,16 @@ public class ChatService {
 	private final ChatRoomRepository chatRoomRepository;
 	private final ProductRepository productRepository;
 	private final UserRepository userRepository;
-	private final S3Service s3Service;
+	private final StorageProviderFactory storageProviderFactory;
 	private final ApplicationEventPublisher eventPublisher;
 	private final MongoTemplate mongoTemplate;
-
-	/**
-	 * * 채팅방 생성 (Polyglot Persistence: MySQL 검증 -> MongoDB 저장)
-	 */
 	private final RedisTemplate<String, Object> redisTemplate;
 
 	@Transactional
 	public ChatRoomResponse createChatRoom(ChatRoomCreateRequest request, Long buyerId) {
 
 		// 1. MySQL에서 데이터 조회 및 검증
-		Product product = productRepository.findById(request.getProductId())
+		Product product = productRepository.findById(request.productId())
 				.orElseThrow(() -> new ProductNotFoundException("Product not found"));
 
 		User buyer = userRepository.findById(buyerId)
@@ -71,7 +69,7 @@ public class ChatService {
 
 		// 2. MongoDB에서 채팅방 조회 혹은 생성
 		ChatRoom chatRoom = chatRoomRepository
-				.findByProductIdAndBuyerId(request.getProductId(), buyerId)
+				.findByProductIdAndBuyerId(request.productId(), buyerId)
 				.orElseGet(() -> {
 					ChatRoom newRoom = ChatRoom
 							.builder()
@@ -85,50 +83,35 @@ public class ChatService {
 		log.info("### ChatRoom created or found: {}", chatRoom.getId());
 
 		// 3. Redis Pre-caching (Member Info for Security)
-		String cacheKey = "chatroom:members:" + chatRoom.getId();
+		String cacheKey = CacheKey.getKey(CacheKey.CHAT_ROOMS, "members", chatRoom.getId().toString());
 		String members = seller.getId() + ":" + buyer.getId();
 
-		redisTemplate.opsForValue().set(cacheKey, members, CacheKey.CHAT_ROOMS_TTL, TimeUnit.SECONDS);
+		redisTemplate.opsForValue().set(cacheKey, members, CacheKey.CHAT_ROOMS.getTtl(), TimeUnit.SECONDS);
 
 		// 4. Response 생성 (with User Info)
 		// profileImageUrl=null인 경우의 처리를 해줘야겠다. User에서
-		return ChatRoomResponse.builder()
-				.roomId(chatRoom.getId())
-				.productId(chatRoom.getProductId())
-				.sellerId(seller.getId())
-				.sellerNickname(seller.getNickname())
-				.sellerProfileImage(seller.getProfileImageUrl())
-				.buyerId(buyer.getId())
-				.buyerNickname(buyer.getNickname())
-				.buyerProfileImage(buyer.getProfileImageUrl())
-				.lastMessage(chatRoom.getLastMessage())
-				.lastMessageSentAt(chatRoom.getLastMessageSentAt())
-				.productTitle(product.getTitle())
-				.productPrice(product.getPrice())
-				.productThumbnail(product.getThumbnailUrl())
-				.build();
+		return ChatRoomResponse.from(chatRoom, seller, buyer, product, 0L);
 	}
 
 	/**
 	 * 메시지 전송 (REST API/Multipart 전용)
 	 */
 	@Transactional
-	public ChatMessageResponse sendMessage(Long senderId, ChatMessageRequest request, MultipartFile image) {
+	public ChatMessageResponse sendImages(Long senderId, ChatMessageRequest request) {
 		String imageUrl = null;
-		if (image != null && !image.isEmpty()) {
-			imageUrl = s3Service.uploadOptimizedImage(image);
-			request.setType(ChatMessage.MessageType.IMAGE);
+		if (request.type() == ChatMessage.MessageType.IMAGE && !request.image().isEmpty()) {
+			imageUrl = storageProviderFactory.getProvider().upload(request.image());
 		}
 
 		// ChatRoom 존재 확인
-		ChatRoom chatRoom = chatRoomRepository.findById(request.getRoomId())
+		ChatRoom chatRoom = chatRoomRepository.findById(request.roomId())
 				.orElseThrow(() -> new ChatRoomNotFoundException("ChatRoom not found"));
 
 		ChatMessage message = ChatMessage.builder()
-				.roomId(request.getRoomId())
+				.roomId(request.roomId())
 				.senderId(senderId)
-				.content(request.getContent())
-				.type(request.getType() != null ? request.getType() : ChatMessage.MessageType.TEXT)
+				.content(request.content())
+				.type(request.type())
 				.imageUrl(imageUrl)
 				.isRead(false)
 				.createdAt(LocalDateTime.now())
@@ -144,16 +127,7 @@ public class ChatService {
 		Long recipientId = chatRoom.getSellerId().equals(senderId) ? chatRoom.getBuyerId()
 				: chatRoom.getSellerId();
 
-		ChatEvent event = ChatEvent.builder()
-				.id(savedMessage.getId())
-				.roomId(savedMessage.getRoomId())
-				.senderId(savedMessage.getSenderId())
-				.recipientId(recipientId)
-				.content(savedMessage.getContent())
-				.type(savedMessage.getType())
-				.imageUrl(savedMessage.getImageUrl())
-				.createdAt(savedMessage.getCreatedAt())
-				.build();
+		ChatEvent event = DomainEventFactory.chatEventCreated(savedMessage);
 
 		log.info("### Publishing event for room: {}", event.roomId());
 
@@ -181,11 +155,13 @@ public class ChatService {
 	 * 메시지 전송 (WebSocket 전용)
 	 */
 	@Transactional
-	public void sendMessage(ChatMessage message) {
+	public void sendMessage(Long senderId, ChatMessage message) {
 		ChatRoom chatRoom = chatRoomRepository.findById(message.getRoomId())
 				.orElseThrow(() -> new ChatRoomNotFoundException("ChatRoom not found"));
 
 		message.setCreatedAt(LocalDateTime.now());
+
+		message.setSenderId(senderId);
 
 		// 1. MongoDB 즉시 저장
 		ChatMessage savedMessage = chatRepository.save(message);
@@ -196,16 +172,7 @@ public class ChatService {
 		Long recipientId = chatRoom.getSellerId().equals(savedMessage.getSenderId()) ? chatRoom.getBuyerId()
 				: chatRoom.getSellerId();
 
-		ChatEvent event = ChatEvent.builder()
-				.id(savedMessage.getId())
-				.roomId(savedMessage.getRoomId())
-				.senderId(savedMessage.getSenderId())
-				.recipientId(recipientId)
-				.content(savedMessage.getContent())
-				.type(savedMessage.getType())
-				.imageUrl(savedMessage.getImageUrl())
-				.createdAt(savedMessage.getCreatedAt())
-				.build();
+		ChatEvent event = DomainEventFactory.chatEventCreated(savedMessage);
 
 		log.info("### Publishing event for room: {}", event.roomId());
 		eventPublisher.publishEvent(event);
@@ -237,22 +204,7 @@ public class ChatService {
 
 			long unreadCount = chatRepository.countByRoomIdAndSenderIdNotAndIsReadFalse(room.getId(), userId);
 
-			return ChatRoomResponse.builder()
-					.roomId(room.getId())
-					.productId(room.getProductId())
-					.sellerId(seller.getId())
-					.sellerNickname(seller.getNickname())
-					.sellerProfileImage(seller.getProfileImageUrl())
-					.buyerId(buyer.getId())
-					.buyerNickname(buyer.getNickname())
-					.buyerProfileImage(buyer.getProfileImageUrl())
-					.lastMessage(room.getLastMessage())
-					.lastMessageSentAt(room.getLastMessageSentAt())
-					.productTitle(product.getTitle())
-					.productPrice(product.getPrice())
-					.productThumbnail(product.getThumbnailUrl())
-					.unreadCount(unreadCount)
-					.build();
+			return ChatRoomResponse.from(room, seller, buyer, product, unreadCount);
 		});
 	}
 
@@ -282,20 +234,6 @@ public class ChatService {
 		Product product = productRepository.findById(room.getProductId())
 				.orElseThrow(() -> new ProductNotFoundException("Product not found"));
 
-		return ChatRoomResponse.builder()
-				.roomId(room.getId())
-				.productId(room.getProductId())
-				.sellerId(seller.getId())
-				.sellerNickname(seller.getNickname())
-				.sellerProfileImage(seller.getProfileImageUrl())
-				.buyerId(buyer.getId())
-				.buyerNickname(buyer.getNickname())
-				.buyerProfileImage(buyer.getProfileImageUrl())
-				.lastMessage(room.getLastMessage())
-				.lastMessageSentAt(room.getLastMessageSentAt())
-				.productTitle(product.getTitle())
-				.productPrice(product.getPrice())
-				.productThumbnail(product.getThumbnailUrl())
-				.build();
+		return ChatRoomResponse.from(room, seller, buyer, product, 0L);
 	}
 }

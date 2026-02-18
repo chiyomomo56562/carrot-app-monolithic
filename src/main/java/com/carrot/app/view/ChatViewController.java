@@ -36,7 +36,7 @@ public class ChatViewController {
     }
 
     @GetMapping("/rooms/{roomId}")
-    public String chatRoomPage(@PathVariable String roomId,
+    public String chatRoomPage(@PathVariable(name = "roomId") String roomId,
             @AuthenticationPrincipal CustomUserDetails customUserDetails,
             Model model) {
         model.addAttribute("room", chatService.getChatRoom(roomId));

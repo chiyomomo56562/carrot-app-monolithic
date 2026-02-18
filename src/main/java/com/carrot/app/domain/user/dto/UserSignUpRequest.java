@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.web.multipart.MultipartFile;
 
 @Getter
 @Builder
@@ -31,4 +32,6 @@ public class UserSignUpRequest {
 
     @NotBlank(message = "지역 정보는 필수 입력 값입니다.")
     private String location;
+
+    private MultipartFile profileImage;
 }

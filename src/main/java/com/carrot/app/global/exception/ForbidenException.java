@@ -1,7 +1,9 @@
 package com.carrot.app.global.exception;
 
-public class ForbidenException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class ForbidenException extends BusinessException {
     public ForbidenException(String message) {
-        super(message);
+        super(message, HttpStatus.FORBIDDEN);
     }
 }

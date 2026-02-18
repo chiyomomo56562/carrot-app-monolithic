@@ -1,7 +1,9 @@
 package com.carrot.app.global.exception;
 
-public class FileSizeException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class FileSizeException extends BusinessException {
     public FileSizeException(String message) {
-        super(message);
+        super(message, HttpStatus.BAD_REQUEST);
     }
 }

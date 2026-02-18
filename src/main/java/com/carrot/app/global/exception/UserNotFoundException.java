@@ -1,7 +1,9 @@
 package com.carrot.app.global.exception;
 
-public class UserNotFoundException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class UserNotFoundException extends BusinessException {
     public UserNotFoundException(String message) {
-        super(message);
+        super(message, HttpStatus.NOT_FOUND);
     }
 }

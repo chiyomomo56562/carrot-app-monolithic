@@ -22,45 +22,31 @@ public class PresenceService {
 
     private static final String PRESENCE_KEY_PREFIX = "user:";
     private static final String PRESENCE_KEY_SUFFIX = ":presence";
-    // session:{sessionId} -> userId (Reverse Lookup for Disconnect stability)
     private static final String SESSION_KEY_PREFIX = "session:";
 
-    /**
-     * 사용자 접속 처리
-     */
     public void connect(Long userId, String sessionId) {
         String presenceKey = getPresenceKey(userId);
         String sessionKey = getSessionKey(sessionId);
 
-        // Pipeline or Multi implementation not strictly needed for just 2 keys but good
-        // practice.
-        // Using simple ops for clarity.
         redisTemplate.opsForSet().add(presenceKey, sessionId);
-        redisTemplate.expire(presenceKey, 24, TimeUnit.HOURS);
+        redisTemplate.expire(presenceKey, 1, TimeUnit.MINUTES);
 
-        // Reverse Mapping for robust disconnect handling
-        redisTemplate.opsForValue().set(sessionKey, userId.toString(), 24, TimeUnit.HOURS);
+        redisTemplate.opsForValue().set(sessionKey, userId.toString(), 1, TimeUnit.MINUTES);
 
         log.info("User Connected: userId={}, sessionId={}", userId, sessionId);
     }
 
-    /**
-     * 사용자 접속 해제 처리
-     */
     public void disconnect(String sessionId) {
         String sessionKey = getSessionKey(sessionId);
 
-        // 1. Find userId from sessionId (Robustness)
         String userIdStr = (String) redisTemplate.opsForValue().get(sessionKey);
 
         if (userIdStr != null) {
             Long userId = Long.parseLong(userIdStr);
             String presenceKey = getPresenceKey(userId);
 
-            // Remove session from presence set
             redisTemplate.opsForSet().remove(presenceKey, sessionId);
 
-            // Clean up session key
             redisTemplate.delete(sessionKey);
 
             log.info("User Disconnected: userId={}, sessionId={}", userId, sessionId);
@@ -69,16 +55,23 @@ public class PresenceService {
         }
     }
 
-    /**
-     * 다중 사용자 온라인 상태 조회 (Redis Pipelining)
-     */
+    public void receiveHeartbeat(Long userId, String sessionId) {
+        String presenceKey = getPresenceKey(userId);
+        String sessionKey = getSessionKey(sessionId);
+
+        redisTemplate.expire(presenceKey, 1, TimeUnit.MINUTES);
+        redisTemplate.expire(sessionKey, 1, TimeUnit.MINUTES);
+
+        log.info("User Heartbeat: userId={}, sessionId={}", userId, sessionId);
+    }
+
     public Map<Long, Boolean> getUsersOnlineStatus(List<Long> userIds) {
         List<Object> results = redisTemplate.executePipelined(new SessionCallback<Object>() {
             @Override
             public <K, V> Object execute(RedisOperations<K, V> operations) throws DataAccessException {
                 for (Long userId : userIds) {
                     String key = getPresenceKey(userId);
-                    operations.opsForSet().size((K) key); // SCARD -> returns Long
+                    operations.opsForSet().size((K) key);
                 }
                 return null;
             }

@@ -1,29 +1,46 @@
 package com.carrot.app.domain.chat.dto;
 
 import java.time.LocalDateTime;
-import lombok.AllArgsConstructor;
+
+import com.carrot.app.domain.chat.document.ChatRoom;
+import com.carrot.app.domain.product.entity.Product;
+import com.carrot.app.domain.user.entity.User;
+
 import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
 
-@Getter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class ChatRoomResponse {
-    private String roomId;
-    private Long productId;
-    private Long sellerId;
-    private String sellerNickname;
-    private String sellerProfileImage;
-    private Long buyerId;
-    private String buyerNickname;
-    private String buyerProfileImage;
-    private String lastMessage;
-    private LocalDateTime lastMessageSentAt;
+public record ChatRoomResponse(
+        String roomId,
+        Long productId,
+        Long sellerId,
+        String sellerNickname,
+        String sellerProfileImage,
+        Long buyerId,
+        String buyerNickname,
+        String buyerProfileImage,
+        String lastMessage,
+        LocalDateTime lastMessageSentAt,
+        String productTitle,
+        Integer productPrice,
+        String productThumbnail,
+        Long unreadCount) {
 
-    private String productTitle;
-    private Integer productPrice;
-    private String productThumbnail;
-    private Long unreadCount;
+    public static ChatRoomResponse from(ChatRoom room, User seller, User buyer, Product product, Long unreadCount) {
+        return ChatRoomResponse.builder()
+                .roomId(room.getId())
+                .productId(room.getProductId())
+                .sellerId(seller.getId())
+                .sellerNickname(seller.getNickname())
+                .sellerProfileImage(seller.getProfileImageUrl())
+                .buyerId(buyer.getId())
+                .buyerNickname(buyer.getNickname())
+                .buyerProfileImage(buyer.getProfileImageUrl())
+                .lastMessage(room.getLastMessage())
+                .lastMessageSentAt(room.getLastMessageSentAt())
+                .productTitle(product.getTitle())
+                .productPrice(product.getPrice())
+                .productThumbnail(product.getThumbnailUrl())
+                .unreadCount(unreadCount)
+                .build();
+    }
 }

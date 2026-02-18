@@ -3,6 +3,7 @@ package com.carrot.app.domain.category.repository;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.repository.query.Param;
 
 import com.carrot.app.domain.category.entity.Category;
 
@@ -18,7 +19,7 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     // 특정 부모의 하위 카테고리 조회
     @Query("SELECT c FROM Category c WHERE c.parent.id = :parentId ORDER BY c.displayOrder ASC")
-    List<Category> findAllByParentIdOrderByDisplayOrderAsc(Long parentId);
+    List<Category> findAllByParentIdOrderByDisplayOrderAsc(@Param("parentId") Long parentId);
 
     Optional<Category> findByName(String name);
 }

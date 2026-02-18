@@ -27,7 +27,7 @@ import java.util.Map;
 @Configuration
 public class KafkaConfig {
 
-        @Value("${spring.kafka.producer.bootstrap-servers}")
+        @Value("${spring.kafka.bootstrap-servers}")
         private String bootstrapServers;
 
         // 메시지 발송자

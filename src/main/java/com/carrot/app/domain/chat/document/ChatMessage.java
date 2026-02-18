@@ -50,6 +50,6 @@ public class ChatMessage {
     private LocalDateTime createdAt;
 
     public enum MessageType {
-        TEXT, IMAGE, SYSTEM
+        TEXT, IMAGE
     }
 }

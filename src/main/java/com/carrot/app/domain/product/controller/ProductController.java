@@ -3,6 +3,8 @@ package com.carrot.app.domain.product.controller;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import jakarta.validation.Valid;
+
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -33,6 +35,7 @@ public class ProductController {
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
     // 1. 상품 등록 기능
+    @PreAuthorize("hasRole('USER')")
     @PostMapping(value = "/new", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
     public ResponseEntity<ProductResponse> createProduct(
             @Valid @ModelAttribute ProductCreateRequest request,
@@ -51,9 +54,10 @@ public class ProductController {
     }
 
     // 2. 상품 정보 수정 기능
+    @PreAuthorize("hasRole('USER')")
     @PatchMapping(value = "/{productId}/edit", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
     public ResponseEntity<ProductResponse> updateProduct(
-            @PathVariable Long productId,
+            @PathVariable(name = "productId") Long productId,
             @Valid @ModelAttribute ProductUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(productService.updateProduct(productId, request, userDetails.getUsername()));

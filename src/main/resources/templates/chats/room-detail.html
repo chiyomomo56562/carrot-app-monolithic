@@ -184,15 +184,6 @@
                 stompClient = Stomp.over(socket);
                 stompClient.debug = null; // Disable debug logs
 
-                // // CSRF 토큰 가져오기
-                // const csrfToken = document.cookie.split('; ')
-                //     .find(row => row.startsWith('XSRF-TOKEN='))
-                //     ?.split('=')[1];
-
-                // const headers = {
-                //     'X-XSRF-TOKEN': csrfToken
-                // };
-
                 const token = document.querySelector('meta[name="_csrf"]').content;
                 const header = document.querySelector('meta[name="_csrf_header"]').content;
 
@@ -280,7 +271,6 @@
                 bubble.textContent = msg.content;
                 bubble.style.maxWidth = '100%'; // Let wrapper control width
 
-                // 말씀하신 isRead 속성을 활용하여 '1' 표시 (내가 보낸 메시지이고 아직 안 읽었을 때)
                 if (isMe) {
                     bubbleWrapper.style.flexDirection = 'row-reverse';
                     // row-reverse일 때: [Bubble] [1] 순서로 넣으면 -> Visual [1] [Bubble] (Center aligned '1')

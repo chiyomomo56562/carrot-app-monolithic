@@ -3,6 +3,7 @@ package com.carrot.app.domain.search.controller;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,13 +23,14 @@ public class SearchController {
         private final ProductSearchService productSearchService;
         private final com.carrot.app.domain.category.repository.CategoryRepository categoryRepository;
 
+        @PreAuthorize("permitAll()")
         @GetMapping("/search")
         public String search(
-                        @RequestParam(required = false) String q,
-                        @RequestParam(required = false) Long categoryId,
-                        @RequestParam(required = false) String status,
-                        @RequestParam(required = false) Integer minPrice,
-                        @RequestParam(required = false) Integer maxPrice,
+                        @RequestParam(name = "q", required = false) String q,
+                        @RequestParam(name = "categoryId", required = false) Long categoryId,
+                        @RequestParam(name = "status", required = false) String status,
+                        @RequestParam(name = "minPrice", required = false) Integer minPrice,
+                        @RequestParam(name = "maxPrice", required = false) Integer maxPrice,
                         @PageableDefault(size = 20) Pageable pageable,
                         Model model) {
 

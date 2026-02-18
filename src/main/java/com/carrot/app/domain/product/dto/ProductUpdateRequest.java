@@ -36,13 +36,13 @@ public class ProductUpdateRequest {
 
     private String location;
 
-    // 유지할 기존 이미지 ID 목록 (순서대로)
-    @Size(max = 5, message = "이미지는 최대 5개까지만 유지할 수 있습니다.")
-    private List<Long> keptImageIds;
+    // 이미지 순서 목록
+    @Size(max = 5, message = "이미지는 최대 5개까지만 저장할 수 있습니다.")
+    private List<Long> imageOrder;
 
     // 새로 업로드할 파일들
     @Size(max = 5, message = "이미지는 최대 5개까지만 업로드할 수 있습니다.")
-    private List<MultipartFile> images;
+    private List<MultipartFile> newImages;
 
     @NotNull(message = "판매 상태를 선택해주세요")
     private Status status;

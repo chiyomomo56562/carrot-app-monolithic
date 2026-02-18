@@ -1,7 +1,9 @@
 package com.carrot.app.global.exception;
 
-public class ChatRoomNotFoundException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class ChatRoomNotFoundException extends BusinessException {
     public ChatRoomNotFoundException(String message) {
-        super(message);
+        super(message, HttpStatus.NOT_FOUND);
     }
 }

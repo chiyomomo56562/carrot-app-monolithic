@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -14,6 +15,8 @@ import org.springframework.data.mongodb.core.mapping.Field;
 import java.time.LocalDateTime;
 
 @Document(collection = "chat_room")
+@CompoundIndex(name = "idx_room_created", def = "{'sellerId': 1, 'lastMessageSentAt': -1}")
+@CompoundIndex(name = "idx_room_created", def = "{'buyerId': 1, 'lastMessageSentAt': -1}")
 @Getter
 @Builder
 @AllArgsConstructor

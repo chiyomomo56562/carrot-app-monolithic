@@ -1,7 +1,9 @@
 package com.carrot.app.global.exception;
 
-public class SearchException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class SearchException extends BusinessException {
     public SearchException(String message) {
-        super(message);
+        super(message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

@@ -38,8 +38,13 @@ services:
       - "9200:9200"
       - "9300:9300"
     command: >
-      sh -c "bin/elasticsearch-plugin install --batch analysis-nori && 
+      sh -c "if [ ! -d 'plugins/analysis-nori' ]; then 
+               bin/elasticsearch-plugin install --batch analysis-nori; 
+             fi && 
              /usr/local/bin/docker-entrypoint.sh elasticsearch"
+    # command: >
+    #   sh -c "bin/elasticsearch-plugin install --batch analysis-nori && 
+    #          /usr/local/bin/docker-entrypoint.sh elasticsearch"
     networks:
       - carrot-network
 
@@ -100,9 +105,42 @@ services:
       - prometheus
     networks:
       - carrot-network
+  
+  # nGrinder Controller 설정
+  ngrinder-controller:
+    image: ngrinder/controller:latest
+    container_name: ngrinder-controller
+    ports:
+      - "8300:80"   # 웹 UI 접속 포트 (8080 충돌 방지)
+      - "16001:16001" # Agent 접속용 L4 포트
+      - "12000-12009:12000-12009" # 부하 테스트용 포트 범위
+    volumes:
+      - ngrinder-data:/opt/ngrinder-controller
+    networks:
+      - ngrinder-network
 
-
+  # nGrinder Agent 설정
+  ngrinder-agent:
+    image: ngrinder/agent:latest
+    container_name: ngrinder-agent
+    depends_on:
+      - ngrinder-controller
+    environment:
+      # Controller의 주소를 지정 (컨테이너 서비스 이름으로 연결)
+      - CONTROLLER_ADDR=ngrinder-controller
+      - CONTROLLER_PORT=16001 # 에이전트 통신용 포트로 수정
+    links:
+      - ngrinder-controller:controller
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ngrinder-network
 
 networks:
   carrot-network:
     driver: bridge
+  ngrinder-network:
+    driver: bridge
+
+volumes:
+  ngrinder-data:

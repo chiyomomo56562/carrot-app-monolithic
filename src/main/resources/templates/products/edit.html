@@ -4,6 +4,75 @@
 
 <head>
     <title>상품 수정</title>
+    <style>
+        .image-preview-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+            min-height: 100px;
+            padding: 10px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+        }
+
+        .image-preview-item {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            cursor: move;
+            background: #fff;
+        }
+
+        .image-preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+
+        .image-preview-item .remove-btn {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 20px;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .image-preview-item.dragging {
+            opacity: 0.5;
+            border: 2px solid var(--primary-color);
+        }
+
+        .image-preview-item.over {
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .thumbnail-badge {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(var(--primary-rgb), 0.8);
+            color: white;
+            font-size: 10px;
+            text-align: center;
+            padding: 2px 0;
+            border-bottom-left-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+    </style>
 </head>
 
 <body>
@@ -16,17 +85,19 @@
 
                 <form id="productEditForm" enctype="multipart/form-data">
                     <div class="input-group">
-                        <label class="input-label">상품 이미지</label>
+                        <label class="input-label">상품 이미지 (드래그하여 순서 변경 가능)</label>
                         <div id="imagePreviewContainer" class="image-preview-container">
-                            <!-- 기존 이미지 목록 (클라이언트 측에서 관리) -->
-                            <div th:each="img : ${product.images}" class="image-preview-item" th:data-id="${img.id}">
+                            <!-- 기존 이미지 목록 -->
+                            <div th:each="img, status : ${product.images}" class="image-preview-item" draggable="true"
+                                th:data-id="${img.id}">
                                 <img th:src="${img.imageUrl}" alt="이미지">
-                                <button type="button" class="remove-btn" onclick="removeExistingImage(this)">×</button>
+                                <button type="button" class="remove-btn" onclick="removeImage(this)">×</button>
+                                <div th:if="${status.index == 0}" class="thumbnail-badge">대표 이미지</div>
                             </div>
                         </div>
-                        <input type="file" id="imageInput" name="files" class="form-input" multiple accept="image/*"
-                            onchange="previewNewImages(this)">
-                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 5px;">최대 10개까지 업로드 가능합니다.</p>
+                        <input type="file" id="imageInput" class="form-input" multiple accept="image/*"
+                            style="margin-top: 10px;" onchange="handleImageSelection(this)">
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 5px;">최대 5개까지 업로드 가능합니다.</p>
                     </div>
 
                     <div class="input-group">
@@ -88,68 +159,146 @@
 
     <th:block layout:fragment="script">
         <script th:inline="javascript">
-            // 유지할 기존 이미지 ID 목록 (초기값: 모두 유지)
-            let keptImageIds = /*[[${product.images != null ? product.images.![id] : {}}]]*/[];
-            let newFiles = [];
+            const container = document.getElementById('imagePreviewContainer');
+            let newImagesMap = new Map(); // id(unique timestamp) -> File Object
+            let dragSrcEl = null;
 
-            function removeExistingImage(btn) {
-                const item = btn.closest('.image-preview-item');
-                const id = parseInt(item.getAttribute('data-id'));
-                keptImageIds = keptImageIds.filter(keepId => keepId !== id);
-                item.remove();
-            }
+            // 드래그 앤 드롭 이벤트 설정
+            initDragAndDrop();
 
-            function previewNewImages(input) {
-                const container = document.getElementById('imagePreviewContainer');
-                // 기존의 'new' 클래스를 가진 프리뷰 제거 (단순화를 위해 매번 갱신하거나, 추가하는 로직 필요)
-                // 여기서는 추가되는 형태로 구현
-                Array.from(input.files).forEach((file, index) => {
-                    newFiles.push(file);
-                    const reader = new FileReader();
-                    reader.onload = function (e) {
-                        const div = document.createElement('div');
-                        div.className = 'image-preview-item new-image';
-                        div.innerHTML = `
-                            <img src="${e.target.result}" alt="미리보기">
-                            <button type="button" class="remove-btn" onclick="removeNewImage(this, ${newFiles.length - 1})">×</button>
-                        `;
-                        container.appendChild(div);
-                    }
-                    reader.readAsDataURL(file);
+            function initDragAndDrop() {
+                const items = container.querySelectorAll('.image-preview-item');
+                items.forEach(item => {
+                    item.addEventListener('dragstart', handleDragStart);
+                    item.addEventListener('dragover', handleDragOver);
+                    item.addEventListener('dragenter', handleDragEnter);
+                    item.addEventListener('dragleave', handleDragLeave);
+                    item.addEventListener('drop', handleDrop);
+                    item.addEventListener('dragend', handleDragEnd);
                 });
             }
 
-            function removeNewImage(btn, index) {
+            function handleDragStart(e) {
+                this.classList.add('dragging');
+                dragSrcEl = this;
+                e.dataTransfer.effectAllowed = 'move';
+            }
+
+            function handleDragOver(e) {
+                if (e.preventDefault) e.preventDefault();
+                return false;
+            }
+
+            function handleDragEnter(e) {
+                if (this !== dragSrcEl) this.classList.add('over');
+            }
+
+            function handleDragLeave(e) {
+                this.classList.remove('over');
+            }
+
+            function handleDrop(e) {
+                if (e.stopPropagation) e.stopPropagation();
+
+                if (dragSrcEl !== this) {
+                    // 순서 변경 로직: 드래그 요소의 위치를 드랍 요소 앞으로 이동
+                    const rect = this.getBoundingClientRect();
+                    const next = (e.clientX - rect.left) > (rect.width / 2);
+
+                    if (next) container.insertBefore(dragSrcEl, this.nextSibling);
+                    else container.insertBefore(dragSrcEl, this);
+
+                    updateThumbnailBadge();
+                }
+                return false;
+            }
+
+            function handleDragEnd(e) {
+                this.classList.remove('dragging');
+                container.querySelectorAll('.image-preview-item').forEach(item => item.classList.remove('over'));
+            }
+
+            function updateThumbnailBadge() {
+                container.querySelectorAll('.thumbnail-badge').forEach(b => b.remove());
+                const firstItem = container.querySelector('.image-preview-item');
+                if (firstItem) {
+                    const badge = document.createElement('div');
+                    badge.className = 'thumbnail-badge';
+                    badge.innerText = '대표 이미지';
+                    firstItem.appendChild(badge);
+                }
+            }
+
+            function handleImageSelection(input) {
+                if (container.children.length + input.files.length > 5) {
+                    alert('이미지는 최대 5개까지 등록 가능합니다.');
+                    input.value = '';
+                    return;
+                }
+
+                Array.from(input.files).forEach(file => {
+                    const id = 'new-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                    newImagesMap.set(id, file);
+
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        const div = document.createElement('div');
+                        div.className = 'image-preview-item';
+                        div.setAttribute('draggable', 'true');
+                        div.setAttribute('data-new-id', id);
+                        div.innerHTML = `
+                            <img src="${e.target.result}" alt="미리보기">
+                            <button type="button" class="remove-btn" onclick="removeImage(this)">×</button>
+                        `;
+                        // 새 아이템 이벤트 리스너 추가
+                        div.addEventListener('dragstart', handleDragStart);
+                        div.addEventListener('dragover', handleDragOver);
+                        div.addEventListener('dragenter', handleDragEnter);
+                        div.addEventListener('dragleave', handleDragLeave);
+                        div.addEventListener('drop', handleDrop);
+                        div.addEventListener('dragend', handleDragEnd);
+
+                        container.appendChild(div);
+                        updateThumbnailBadge();
+                    }
+                    reader.readAsDataURL(file);
+                });
+                input.value = ''; // 같은 파일 재선택 가능하도록 초기화
+            }
+
+            function removeImage(btn) {
                 const item = btn.closest('.image-preview-item');
-                // newFiles에서는 해당 인덱스를 null로 처리하거나 splice
-                // 여기서는 단순화를 위해 UI만 제거하고 실제 submit시 input.files를 쓰거나 별도 배열 관리
-                newFiles[index] = null;
+                const newId = item.getAttribute('data-new-id');
+                if (newId) {
+                    newImagesMap.delete(newId);
+                }
                 item.remove();
+                updateThumbnailBadge();
             }
 
             document.getElementById('productEditForm').addEventListener('submit', function (e) {
                 e.preventDefault();
 
                 const productId = /*[[${product.id}]]*/ '';
-
-                // CSRF 토큰 가져오기 (detail.html과 동일한 방식 적용)
                 const csrfToken = document.cookie.split('; ')
                     .find(row => row.startsWith('XSRF-TOKEN='))
                     ?.split('=')[1];
 
                 const formData = new FormData(this);
 
-                // 기존 keptImageIds를 formData에 추가
-                formData.delete('keptImageIds'); // 기존에 있을 수 있는 값 제거
-                if (keptImageIds && keptImageIds.length > 0) {
-                    keptImageIds.forEach(id => {
-                        formData.append('keptImageIds', id);
-                    });
-                }
+                // imageOrder 구성 및 newImages 추출
+                const items = container.querySelectorAll('.image-preview-item');
+                items.forEach(item => {
+                    const existingId = item.getAttribute('data-id');
+                    const newId = item.getAttribute('data-new-id');
 
-                // files는 이미 input[name="files"]에 의해 들어가지만, 
-                // removeNewImage로 제거된 파일들을 필터링하고 싶다면 여기서 재조합 필요
-                // 여기서는 간단하게 input에 있는 모든 파일을 보냄 (실제 운영시 개선 필요)
+                    if (existingId) {
+                        formData.append('imageOrder', existingId);
+                    } else if (newId) {
+                        formData.append('imageOrder', -1);
+                        formData.append('newImages', newImagesMap.get(newId));
+                    }
+                });
 
                 fetch('/api/products/' + productId + '/edit', {
                     method: 'PATCH',

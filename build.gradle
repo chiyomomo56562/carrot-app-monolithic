@@ -38,6 +38,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator' // Monitoring
 	implementation 'org.springframework.boot:spring-boot-starter-mail' // Email
 	
+	// redisson
+	implementation 'org.redisson:redisson-spring-boot-starter:3.27.0'
+
 	// kafka
 	implementation 'org.springframework.kafka:spring-kafka'
 	implementation 'org.apache.kafka:kafka-streams' //kafka
@@ -98,6 +101,7 @@ dependencies {
 	testImplementation 'org.testcontainers:mongodb'
 	testImplementation 'org.testcontainers:kafka'
 	testImplementation 'org.awaitility:awaitility:4.2.0'
+	testImplementation 'org.testcontainers:elasticsearch'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

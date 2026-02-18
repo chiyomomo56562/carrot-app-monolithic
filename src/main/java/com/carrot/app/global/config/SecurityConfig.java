@@ -13,6 +13,7 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.session.DisableEncodeUrlFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -39,6 +40,7 @@ public class SecurityConfig {
 	private final AuthenticationConfiguration authenticationConfiguration;
 	private final LoginSuccessHandler loginSuccessHandler;
 	private final CustomLogoutHandler customLogoutHandler;
+	private final MdcLoggingFilter mdcLoggingFilter;
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -57,7 +59,8 @@ public class SecurityConfig {
 		http
 				.csrf(csrf -> csrf
 						.csrfTokenRepository(csrfTokenRepository())
-						.csrfTokenRequestHandler(requestHandler))
+						.csrfTokenRequestHandler(requestHandler)
+						.ignoringRequestMatchers("/api/auth/logout"))
 				.formLogin(form -> form.disable())
 				.httpBasic(httpBasic -> httpBasic.disable())
 				// H2 Console
@@ -72,13 +75,15 @@ public class SecurityConfig {
 						.requestMatchers("/h2-console/**").permitAll()
 
 						// 공개 페이지 (로그인, 회원가입, 랜딩)
-						.requestMatchers("/", "/users/login", "/api/auth/login", "/users/signup", "/api/users/signup",
-								"/api/users/email-check", "/api/users/nickname-check", "/api/users/email-verify",
+						.requestMatchers("/", "/users/login", "/api/auth/login", "/users/signup",
+								"/api/users/signup",
+								"/api/users/email-check", "/api/users/nickname-check",
+								"/api/users/email-verify",
 								"/api/users/refresh-token", "/api/auth/logout")
 						.permitAll()
 
 						// product
-						.requestMatchers("/products/new").authenticated()
+						.requestMatchers("/products/new").permitAll()
 
 						.requestMatchers("/products", "/products/{productId}").permitAll()
 						// category
@@ -95,6 +100,12 @@ public class SecurityConfig {
 						.requestMatchers("/actuator/**").permitAll()
 						.anyRequest().authenticated())
 
+				// MDC 필터 추가 (가장 먼저 실행)
+				.addFilterBefore(mdcLoggingFilter, DisableEncodeUrlFilter.class)
+
+				// JWT 검증 필터 추가 (CSRF 필터보다 먼저 실행하여 로그 확인 및 인증 처리)
+				.addFilterBefore(new JwtAuthenticationFilter(jwtUtil), CsrfFilter.class)
+
 				// CSRF 쿠키 갱신을 위한 필터 추가
 				.addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
 
@@ -107,9 +118,6 @@ public class SecurityConfig {
 						.addLogoutHandler(customLogoutHandler)
 						.deleteCookies("accessToken", "refreshToken")
 						.logoutSuccessUrl("/?logout"))
-
-				// JWT 검증 필터 추가 (CSRF 필터보다 먼저 실행하여 로그 확인 및 인증 처리)
-				.addFilterBefore(new JwtAuthenticationFilter(jwtUtil), CsrfFilter.class)
 
 				// 403 Forbidden 상세 로그를 위한 설정
 				.exceptionHandling(handler -> handler

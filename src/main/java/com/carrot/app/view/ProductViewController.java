@@ -33,7 +33,7 @@ public class ProductViewController {
     @GetMapping("")
     public String getProducts(
             Model model,
-            @RequestParam(required = false) Long categoryId,
+            @RequestParam(name = "categoryId", required = false) Long categoryId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<ProductResponse> products = productService.getProducts(categoryId, pageable);
         model.addAttribute("products", products);
@@ -44,7 +44,7 @@ public class ProductViewController {
     @GetMapping("/{productId}")
     public String getProductDetail(
             Model model,
-            @PathVariable Long productId) {
+            @PathVariable(name = "productId") Long productId) {
         ProductDetailResponse productDetail = productService.getProductDetail(productId);
         model.addAttribute("product", productDetail);
         return "products/detail";
@@ -59,7 +59,7 @@ public class ProductViewController {
 
     // 상품 수정 페이지
     @GetMapping("/{productId}/edit")
-    public String productEditPage(@PathVariable Long productId, Model model,
+    public String productEditPage(@PathVariable(name = "productId") Long productId, Model model,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         ProductDetailResponse productDetail = productService.getProductDetail(productId);
         model.addAttribute("product", productDetail);

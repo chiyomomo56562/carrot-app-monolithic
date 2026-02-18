@@ -1,7 +1,9 @@
 package com.carrot.app.global.exception;
 
-public class UserNotActiveException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class UserNotActiveException extends BusinessException {
     public UserNotActiveException(String message) {
-        super(message);
+        super(message, HttpStatus.UNAUTHORIZED);
     }
 }

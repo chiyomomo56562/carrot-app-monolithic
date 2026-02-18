@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.MDC;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -48,6 +49,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private void setAuthentication(String token) {
+        String email = jwtUtil.getEmailFromToken(token);
+        MDC.put("userId", email);
         Authentication authentication = jwtUtil.getAuthentication(token);
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }

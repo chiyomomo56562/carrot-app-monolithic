@@ -20,10 +20,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor(access = AccessLevel.PROTECTED)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
-@Table(name = "users", indexes = {
-        @Index(name = "idx_user_email", columnList = "email"),
-        @Index(name = "idx_user_nickname", columnList = "nickname")
-})
+@Table(name = "users")
 public class User {
 
     @Id

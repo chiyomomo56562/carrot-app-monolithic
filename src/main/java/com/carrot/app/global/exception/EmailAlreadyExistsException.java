@@ -1,7 +1,9 @@
 package com.carrot.app.global.exception;
 
-public class EmailAlreadyExistsException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class EmailAlreadyExistsException extends BusinessException {
     public EmailAlreadyExistsException(String message) {
-        super(message);
+        super(message, HttpStatus.BAD_REQUEST);
     }
 }

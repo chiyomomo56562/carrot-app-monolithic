@@ -25,8 +25,10 @@ import java.util.stream.Collectors;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
 @Table(name = "products", indexes = {
-        @Index(name = "idx_product_category", columnList = "category_id"),
-        @Index(name = "idx_product_sort_filter", columnList = "status, created_at DESC")
+        // 1. 카테고리별 목록 화면: 특정 카테고리의 상품을 최신순으로 조회할 때 최적화
+        @Index(name = "idx_product_category_created", columnList = "category_id, created_at DESC"),
+        // 2. 상태별 목록 화면: 특정 상태의 상품을 최신순으로 조회할 때 최적화
+        @Index(name = "idx_product_status_created", columnList = "status, created_at DESC")
 })
 public class Product {
 
@@ -65,22 +67,17 @@ public class Product {
         image.setProduct(null);
     }
 
-    public void updateImages(List<ProductImage> imageList) {
-        // 1. 삭제할 대상을 찾아서 하나씩 제거 (orphanRemoval 작동)
-        List<ProductImage> toRemove = this.images.stream()
-                .filter(img -> !imageList.contains(img))
-                .collect(Collectors.toList());
-
-        toRemove.forEach(this::removeImage); // 이 메서드 안에서 리스트 제거 및 연관관계 해제
-
-        // 2. 추가할 대상을 찾아서 추가
-        imageList.stream()
-                .filter(img -> !this.images.contains(img))
-                .forEach(this::addImage);
+    public void setImages(List<ProductImage> imageList) {
+        this.images = imageList;
     }
 
-    @Column(name = "thumbnail_url", length = 500)
-    private String thumbnailUrl;
+    @Builder.Default
+    @Column(name = "thumbnail_url", length = 500, nullable = true)
+    private String thumbnailUrl = null;
+
+    public void setThumbnailUrl(String thumbnailUrl) {
+        this.thumbnailUrl = thumbnailUrl;
+    }
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

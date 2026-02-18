@@ -83,42 +83,6 @@ public class RedisConfig {
                 return template;
         }
 
-        // @Cacheable 어노테이션이 붙은 메서드의 결과를 자동으로 Redis에 저장하고 관리하는 메니저
-        @Bean
-        public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory,
-                        @Qualifier("redisObjectMapper") ObjectMapper redisObjectMapper) {
-                GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(
-                                redisObjectMapper);
-
-                // 기본 설정 (키, 값 직렬화, 기본 ttl 지정)
-                RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
-                                .serializeKeysWith(
-                                                RedisSerializationContext.SerializationPair
-                                                                .fromSerializer(new StringRedisSerializer()))
-                                .serializeValuesWith(RedisSerializationContext.SerializationPair
-                                                .fromSerializer(jsonSerializer))
-                                .entryTtl(Duration.ofMinutes(10)); // Default TTL
-
-                // 캐시별 설정
-                Map<String, RedisCacheConfiguration> cacheConfigMap = new HashMap<>();
-
-                cacheConfigMap.put(CacheKey.PRODUCTS,
-                                defaultConfig.entryTtl(Duration.ofSeconds(CacheKey.PRODUCTS_TTL)));
-                cacheConfigMap.put(CacheKey.PRODUCT_DETAIL,
-                                defaultConfig.entryTtl(Duration.ofSeconds(CacheKey.PRODUCT_DETAIL_TTL)));
-                cacheConfigMap.put(CacheKey.CATEGORIES,
-                                defaultConfig.entryTtl(Duration.ofSeconds(CacheKey.CATEGORIES_TTL)));
-                cacheConfigMap.put(CacheKey.CHAT_ROOMS,
-                                defaultConfig.entryTtl(Duration.ofSeconds(CacheKey.CHAT_ROOMS_TTL)));
-                cacheConfigMap.put(CacheKey.POPULAR_KEYWORDS,
-                                defaultConfig.entryTtl(Duration.ofSeconds(CacheKey.POPULAR_KEYWORDS_TTL)));
-
-                return RedisCacheManager.builder(connectionFactory)
-                                .cacheDefaults(defaultConfig)
-                                .withInitialCacheConfigurations(cacheConfigMap)
-                                .build();
-        }
-
         // Redis Pub/Sub 메시지 리스너 컨테이너
         @Bean
         public RedisMessageListenerContainer redisMessageListener(

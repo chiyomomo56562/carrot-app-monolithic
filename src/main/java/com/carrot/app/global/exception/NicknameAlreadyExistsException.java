@@ -1,7 +1,9 @@
 package com.carrot.app.global.exception;
 
-public class NicknameAlreadyExistsException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class NicknameAlreadyExistsException extends BusinessException {
     public NicknameAlreadyExistsException(String message) {
-        super(message);
+        super(message, HttpStatus.BAD_REQUEST);
     }
 }

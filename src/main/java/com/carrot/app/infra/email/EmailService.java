@@ -28,52 +28,36 @@ public class EmailService {
     private String baseUrl;
 
     public void sendVerificationEmail(String to, String token) {
-        String verificationLink = baseUrl + "/api/users/email-verify?token=" + token;
+        log.info("회원가입 인증 이메일 발송을 시도합니다. to: {}", to);
+        EmailTemplate template = new VerificationEmailTemplate(baseUrl, token);
+        sendEmail(to, template);
+    }
 
+    public void sendNotificationEmail(Long recipientId, String content) {
+        User user = userRepository.findById(recipientId)
+                .orElseThrow(() -> new UserNotFoundException("사용자를 찾을 수 없습니다."));
+
+        log.info("알림 이메일 발송을 시도합니다. to: {}", user.getEmail());
+        EmailTemplate template = new NotificationEmailTemplate(content);
+        sendEmail(user.getEmail(), template);
+    }
+
+    /**
+     * 공통 이메일 발송 로직
+     */
+    private void sendEmail(String to, EmailTemplate template) {
         try {
-            log.info("이메일 발송을 시도합니다. to: {}, token: {}", to, token);
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setTo(to);
-            helper.setSubject("[당근마켓] 회원가입 인증을 완료해주세요.");
-
-            // HTML 형식으로 메일 본문 작성
-            String htmlContent = "<h1>안녕하세요!</h1>" +
-                    "<p>가입을 축하드립니다. 아래 링크를 클릭하여 인증을 완료해주세요.</p>" +
-                    "<a href='" + verificationLink + "'>이메일 인증하기</a>";
-
-            helper.setText(htmlContent, true);
+            helper.setSubject(template.getSubject());
+            helper.setText(template.getBody(), true);
 
             mailSender.send(message);
-            log.info("이메일 발송을 완료했습니다. to: {}, token: {}", to, token);
+            log.info("이메일 발송을 완료했습니다. to: {}", to);
         } catch (MessagingException e) {
-            log.error("이메일 발송에 실패했습니다.", e);
-            throw new EmailSendException("이메일 발송에 실패했습니다.");
-        }
-    }
-
-    public void sendNotificationEmail(Long recipientId, String content) {
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            User user = userRepository.findById(recipientId)
-                    .orElseThrow(() -> new UserNotFoundException("사용자를 찾을 수 없습니다."));
-
-            helper.setTo(user.getEmail());
-            helper.setSubject("[당근마켓] 새로운 메시지 알림");
-
-            // HTML 형식으로 메일 본문 작성
-            String htmlContent = "<h1>안녕하세요!</h1>" +
-                    "<p>새로운 메시지가 도착했습니다.</p>" +
-                    "<p>내용: " + content + "</p>";
-
-            helper.setText(htmlContent, true);
-
-            mailSender.send(message);
-        } catch (MessagingException e) {
-            // 예외 처리 로직 (로그 기록 등)
+            log.error("이메일 발송에 실패했습니다. to: {}", to, e);
             throw new EmailSendException("이메일 발송에 실패했습니다.");
         }
     }

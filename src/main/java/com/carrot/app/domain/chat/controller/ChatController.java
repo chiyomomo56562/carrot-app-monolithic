@@ -7,10 +7,13 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 import java.security.Principal;
+import java.util.Map;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import com.carrot.app.domain.chat.document.ChatMessage;
 import com.carrot.app.domain.chat.service.ChatService;
@@ -28,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.messaging.simp.SimpMessageSendingOperations;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,9 +43,10 @@ import lombok.extern.slf4j.Slf4j;
 public class ChatController {
 
     private final ChatService chatService;
-    private final org.springframework.messaging.simp.SimpMessageSendingOperations messagingTemplate;
+    private final SimpMessageSendingOperations messagingTemplate;
 
     // WebSocket 메시지 처리 (text 전용)
+    @PreAuthorize("hasRole('USER')")
     @MessageMapping("/message")
     public void message(ChatMessage message, Principal principal) {
         if (principal == null)
@@ -50,13 +55,13 @@ public class ChatController {
         UsernamePasswordAuthenticationToken token = (UsernamePasswordAuthenticationToken) principal;
         CustomUserDetails userDetails = (CustomUserDetails) token.getPrincipal();
 
-        message.setSenderId(userDetails.getId());
-        chatService.sendMessage(message);
+        chatService.sendMessage(userDetails.getId(), message);
     }
 
     // WebSocket 실시간 읽음 신호 중계
+    @PreAuthorize("hasRole('USER')")
     @MessageMapping("/read")
-    public void markAsRead(java.util.Map<String, String> payload, Principal principal) {
+    public void markAsRead(Map<String, String> payload, Principal principal) {
         String roomId = payload.get("roomId");
         if (roomId == null)
             return;
@@ -80,22 +85,24 @@ public class ChatController {
     }
 
     // REST API 메시지 전송 (이미지 전용)
+    @PreAuthorize("hasRole('USER')")
     @PostMapping(value = "/messages", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ChatMessageResponse> sendChatMessage(
-            @RequestPart("request") ChatMessageRequest request,
-            @RequestPart(value = "image", required = false) MultipartFile image,
+            @ModelAttribute ChatMessageRequest request,
             @AuthenticationPrincipal CustomUserDetails customUserDetails) {
-        log.info("Received REST chat message request: room={}, type={}", request.getRoomId(), request.getType());
-        return ResponseEntity.ok(chatService.sendMessage(customUserDetails.getId(), request, image));
+        log.info("Received REST chat message request: room={}, type={}", request.roomId(), request.type());
+        return ResponseEntity.ok(chatService.sendImages(customUserDetails.getId(), request));
     }
 
+    @PreAuthorize("hasRole('USER')")
     @GetMapping("/rooms/{roomId}/messages")
     public ResponseEntity<Slice<ChatMessage>> getChatHistory(
-            @PathVariable String roomId,
+            @PathVariable(name = "roomId") String roomId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(chatService.getChatHistory(roomId, pageable));
     }
 
+    @PreAuthorize("hasRole('USER')")
     @PostMapping("/rooms")
     public ResponseEntity<ChatRoomResponse> createChatRoom(
             @RequestBody ChatRoomCreateRequest request,
